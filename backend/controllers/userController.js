@@ -6,7 +6,7 @@ const getFreelancers = async (req, res) => {
   try {
     const { search, skills } = req.query
 
-    let query = { role: 'freelancer' }
+    let query = { skills: { $exists: true, $ne: [] } }
 
     if (search) {
       query.$or = [
@@ -30,7 +30,9 @@ const getFreelancers = async (req, res) => {
 // @route GET /api/users/:id
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password')
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .lean()
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' })

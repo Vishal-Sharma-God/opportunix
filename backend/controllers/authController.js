@@ -11,12 +11,20 @@ const generateToken = (id) => {
 // @route POST /api/auth/register
 const register = async (req, res) => {
   try {
-    const { name, email, password, role, skills } = req.body
+    const { name, email, password } = req.body
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Please fill all fields!' })
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters!' })
+    }
 
     // Check if user exists
     const userExists = await User.findOne({ email })
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' })
+      return res.status(400).json({ message: 'User already exists!' })
     }
 
     // Create user
@@ -24,10 +32,9 @@ const register = async (req, res) => {
       name,
       email,
       password,
-      role: role || 'client',
-      skills: skills ? skills.split(',').map(s => s.trim()) : [],
+      role: 'user',
       trialStart: new Date(),
-      isPro: role === 'freelancer' ? true : false,
+      isPro: false,
     })
 
     res.status(201).json({
@@ -38,7 +45,6 @@ const register = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        skills: user.skills,
         isPro: user.isPro,
         trialStart: user.trialStart,
       }
@@ -54,27 +60,14 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body
 
-    // Find user
     const user = await User.findOne({ email })
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    // Check password
     const isMatch = await user.comparePassword(password)
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' })
-    }
-
-    // Check trial expiry for freelancers
-    if (user.role === 'freelancer' && !user.isBusiness) {
-      const trialStart = new Date(user.trialStart)
-      const now = new Date()
-      const diffDays = Math.floor((now - trialStart) / (1000 * 60 * 60 * 24))
-      if (diffDays >= 30 && !user.isPro) {
-        user.trialExpired = true
-        await user.save()
-      }
     }
 
     res.json({
@@ -87,10 +80,12 @@ const login = async (req, res) => {
         role: user.role,
         skills: user.skills,
         isPro: user.isPro,
-        trialExpired: user.trialExpired,
-        trialStart: user.trialStart,
         isBusiness: user.isBusiness,
         isVerified: user.isVerified,
+        bio: user.bio,
+        location: user.location,
+        hourlyRate: user.hourlyRate,
+        profilePic: user.profilePic,
       }
     })
   } catch (error) {
@@ -120,8 +115,6 @@ const forgotPassword = async (req, res) => {
       return res.status(404).json({ message: 'No user found with this email' })
     }
 
-    // In production — send real email
-    // For now return success
     res.json({
       success: true,
       message: 'Password reset link sent to your email'
